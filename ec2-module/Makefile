@@ -1,31 +1,24 @@
 MAKEFLAGS  	      += --silent
 SHELL      	      = /bin/bash
 
+cnf ?= .target.env
+include $(cnf)
+export $(shell sed 's/=.*//' $(cnf))
+
+ifndef TARGET_ENV
+	TARGET_ENV=.target.env
+endif
+
 ifndef TARGET_FOLDER
 	TARGET_FOLDER := ""
 endif
 
-ifndef TARGET_ENV
-	ERROR := $(error TARGET_ENV file not provided, please create it)
+ifndef TERRAFORM_VERSION
+	TERRAFORM_VERSION=1.1.8
 endif
-BUCKET_NAME := $(shell awk -F'=' '/BUCKET_NAME/{print $$2}' ${TARGET_ENV})
-
-#ifndef TERRAFORM_VERSION
-#	TERRAFORM_VERSION=1.0.0
-#endif
 
 ifndef TFPLAN
 	TFPLAN=tfplan
-endif
-
-# Verify the OS
-UNAME := $(shell uname -s)
-ifeq ($(UNAME), Linux)
-    GET_ID := $(shell stat -c "%u:%g" ./)
-else ifeq ($(UNAME), Darwin)
-	GET_ID := $(shell stat -f "%u:%g" ./)
-else
-	ERROR := $(error Comando somente suportado em Linux/Mac)
 endif
 
 # HELP
@@ -35,10 +28,6 @@ endif
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-
-terraform-tfsec: ## Execute tfsec in terraform files
-	echo "STEP: terraform-tfsec - Execute tfsec in terraform files"
-	docker run --rm -v $$PWD/${TARGET_FOLDER}:/app -w /app -u $(GET_ID) tfsec/tfsec:v0.58 . --no-color
 
 terraform-validate: ## Execute terraform validate in terraform files
 	echo "STEP: terraform-validate - Execute terraform validate in terraform files"
@@ -55,14 +44,9 @@ terraform-fmt: ## Execute terraform fmt in terraform files
 	echo "STEP: terraform-fmt - Execute terraform fmt in terraform files"
 	docker run --rm -v $$PWD/${TARGET_FOLDER}:/app -w /app hashicorp/terraform:$(TERRAFORM_VERSION) fmt -recursive
 
-terraform-generate-backend-gcs:  ## Generate file backend.tf on Google Cloud Storage
-	echo "STEP: terraform-generate-backend - Generate file backend.tf"
-	echo -e "terraform {\nbackend \"gcs\" { bucket  = \"$(BUCKET_NAME)\" }\n}" > ./${TARGET_FOLDER}/backend.tf && \
-	terraform fmt
-
 terraform-init: ## Execute terraform init in terraform files
 	echo "STEP: terraform-init - Execute terraform init in terraform files"
-	docker run --rm -v $$PWD/${TARGET_FOLDER}:/app -w /app --env-file $(TARGET_ENV) -u $(GET_ID) hashicorp/terraform:$(TERRAFORM_VERSION) init
+	docker run --rm -v $$PWD/${TARGET_FOLDER}:/app -w /app --env-file $(TARGET_ENV) hashicorp/terraform:$(TERRAFORM_VERSION) init
 
 terraform-plan: terraform-validate  ## Execute terraform validate, tfsec and plan in terraform files
 	echo "STEP: terraform-plan - Execute terraform validate, tfsec and plan in terraform files"
