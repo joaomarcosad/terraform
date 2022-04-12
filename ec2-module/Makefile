@@ -1,12 +1,12 @@
 MAKEFLAGS  	      += --silent
 SHELL      	      = /bin/bash
 
-cnf ?= .target.env
+cnf ?= .env
 include $(cnf)
 export $(shell sed 's/=.*//' $(cnf))
 
 ifndef TARGET_ENV
-	TARGET_ENV=.target.env
+	TARGET_ENV=.env
 endif
 
 ifndef TARGET_FOLDER
